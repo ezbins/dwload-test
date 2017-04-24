@@ -4,21 +4,49 @@ import android.app.Activity;
 import android.app.DownloadManager;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
 import android.widget.Toast;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedReader;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class MainActivity extends Activity {
     private DownloadManager downloadManager;
     private long fileDownLoadId;
     private File direct;
+    private URL url;
+    private HttpURLConnection conn;
+    private UpToQuery upToQuery;
+    private BufferedReader reader;
+    private StringBuilder strBuilder;
+    JSONObject outPutData;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        upToQuery = new UpToQuery();
+        upToQuery.execute("http://192.168.1.0");
     }
 
     public void dwload(View v) {
@@ -132,6 +160,50 @@ public class MainActivity extends Activity {
                         statusText = "STATUS_SUCCESSFUL";
                         reasonText = "Filename:\n" + filename;
                         break;
+        }
+    }
+
+    private class UpToQuery extends AsyncTask<String,Void,Void> {
+
+        @Override
+        protected Void doInBackground(String... params) {
+            outPutData = new JSONObject();
+            try {
+                String urlStr = params[0];
+                url = new URL(urlStr);
+                conn =(HttpURLConnection)url.openConnection();
+                conn.setReadTimeout(10000);
+                conn.setConnectTimeout(15000);
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                outPutData.put("request","data");
+                DataOutputStream outputStream = new DataOutputStream(conn.getOutputStream());
+                outputStream.writeBytes(outPutData.toString());
+                outputStream.flush();
+                outputStream.close();
+
+                // response data from web
+                InputStream is = conn.getInputStream();
+                if (conn.getResponseCode() !=200) {
+                    //trace http resonpse error
+                    //conn.getErrorStream();
+                 } else {
+                    reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                    String line;
+                    while ( (line=reader.readLine())!=null){
+                            strBuilder.append(line);
+                    }
+                }
+
+
+            } catch (IOException e) {
+                e.printStackTrace();
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }finally {
+                conn.disconnect();
+            }
+            return null;
         }
     }
 }
