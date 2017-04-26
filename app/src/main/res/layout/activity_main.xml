@@ -12,7 +12,6 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="Download btn"
-        android:onClick="dwload"
-         />
+        android:id="@+id/dw_btn"/>
 
 </LinearLayout>

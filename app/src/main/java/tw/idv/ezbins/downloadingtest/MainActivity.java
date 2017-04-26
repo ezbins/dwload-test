@@ -8,6 +8,7 @@ import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
+import android.widget.Button;
 import android.widget.Toast;
 
 import org.json.JSONException;
@@ -22,10 +23,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-public class MainActivity extends Activity {
+public class MainActivity extends Activity  {
     private DownloadManager downloadManager;
     private long fileDownLoadId;
     private File direct;
@@ -34,27 +36,38 @@ public class MainActivity extends Activity {
     private UpToQuery upToQuery;
     private BufferedReader reader;
     private StringBuilder strBuilder;
+    private Button btn;
     JSONObject outPutData;
+    JSONObject inPutData;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        btn = (Button) findViewById(R.id.dw_btn);
     }
 
     @Override
     protected void onStart() {
         super.onStart();
+        btn.setOnClickListener(dwListener);
+    }
+    View.OnClickListener dwListener = (new View.OnClickListener() {
+        @Override
+        public void onClick(View v) {
+            upToQuery = new UpToQuery();
+            upToQuery.execute("http://192.168.1.172:8080/iRobot/first");
+        }
+    });
+   /* public void dwload(View v) {
+        *//*Uri audioPath = Uri.parse(file_localtion);
+        fileDownLoadId = DownloadData();*//*
         upToQuery = new UpToQuery();
-        upToQuery.execute("http://192.168.1.0");
-    }
+        upToQuery.execute("http://192.168.1.172:8080/iRobot/first");
+    }*/
 
-    public void dwload(View v) {
-        Uri audioPath = Uri.parse("http://192.168.1.113/audio/pigs.mp3");
-        fileDownLoadId = DownloadData(audioPath,v);
-    }
-
-    private long DownloadData(Uri uri, View v) {
+    private long DownloadData(String url) {
+        Uri audioPath = Uri.parse(url);
         long downloadReference;
         direct = new File(Environment.getExternalStorageDirectory()
                 + "/Download");
@@ -62,7 +75,7 @@ public class MainActivity extends Activity {
             direct.mkdirs();
         }
         downloadManager = (DownloadManager)getSystemService(DOWNLOAD_SERVICE);
-        DownloadManager.Request request = new DownloadManager.Request(uri);
+        DownloadManager.Request request = new DownloadManager.Request(audioPath);
 
         //Setting title of request
         request.setTitle("Data Download");
@@ -77,7 +90,8 @@ public class MainActivity extends Activity {
 
         //Enqueue download and save the referenceId
         downloadReference = downloadManager.enqueue(request);
-
+        String str = String.valueOf(downloadReference);
+        Toast.makeText(this,str,Toast.LENGTH_LONG).show();
         return downloadReference;
     }
 
@@ -163,11 +177,19 @@ public class MainActivity extends Activity {
         }
     }
 
-    private class UpToQuery extends AsyncTask<String,Void,Void> {
+    private class UpToQuery extends AsyncTask<String,Void,String> {
 
         @Override
-        protected Void doInBackground(String... params) {
+        protected void onPreExecute() {
+            super.onPreExecute();
             outPutData = new JSONObject();
+            strBuilder = new StringBuilder();
+        }
+
+        @Override
+        protected String doInBackground(String... params) {
+            String isUpdate="";
+            String file_location="";
             try {
                 String urlStr = params[0];
                 url = new URL(urlStr);
@@ -175,10 +197,11 @@ public class MainActivity extends Activity {
                 conn.setReadTimeout(10000);
                 conn.setConnectTimeout(15000);
                 conn.setRequestMethod("POST");
+                conn.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
                 conn.setDoOutput(true);
                 outPutData.put("request","data");
-                DataOutputStream outputStream = new DataOutputStream(conn.getOutputStream());
-                outputStream.writeBytes(outPutData.toString());
+                OutputStreamWriter outputStream = new OutputStreamWriter(conn.getOutputStream());
+                outputStream.write(outPutData.toString());
                 outputStream.flush();
                 outputStream.close();
 
@@ -193,6 +216,10 @@ public class MainActivity extends Activity {
                     while ( (line=reader.readLine())!=null){
                             strBuilder.append(line);
                     }
+                    inPutData = new JSONObject(strBuilder.toString());
+                    if (inPutData.getString("isUpdate").equals("yes")) {
+                        file_location = inPutData.getString("file_location");
+                    }
                 }
 
 
@@ -200,10 +227,18 @@ public class MainActivity extends Activity {
                 e.printStackTrace();
             } catch (JSONException e) {
                 e.printStackTrace();
-            }finally {
-                conn.disconnect();
             }
-            return null;
+            return file_location;
+        }
+
+        @Override
+        protected void onPostExecute(String  file_location) {
+            super.onPostExecute(file_location);
+            if (file_location.length()>0) {
+                DownloadData(file_location);
+            }else {
+                Toast.makeText(getApplicationContext(),"Not Download yet",Toast.LENGTH_LONG).show();
+            }
         }
     }
 }
