@@ -237,7 +237,7 @@ public class MainActivity extends Activity  {
             if (file_location.length()>0) {
                 DownloadData(file_location);
             }else {
-                Toast.makeText(getApplicationContext(),"Not Download yet",Toast.LENGTH_LONG).show();
+                Toast.makeText(getApplicationContext(),"Non-downloadable",Toast.LENGTH_LONG).show();
             }
         }
     }
