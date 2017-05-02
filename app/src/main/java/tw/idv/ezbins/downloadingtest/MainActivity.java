@@ -2,6 +2,10 @@ package tw.idv.ezbins.downloadingtest;
 
 import android.app.Activity;
 import android.app.DownloadManager;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.AsyncTask;
@@ -36,6 +40,7 @@ public class MainActivity extends Activity  {
     private UpToQuery upToQuery;
     private BufferedReader reader;
     private StringBuilder strBuilder;
+    private BroadcastReceiver dwFinishedReceive;
     private Button btn;
     JSONObject outPutData;
     JSONObject inPutData;
@@ -60,9 +65,9 @@ public class MainActivity extends Activity  {
         }
     });
 
-    private long DownloadData(String url) {
+    private void DownloadData(String url) {
         Uri audioPath = Uri.parse(url);
-        long downloadReference;
+        final long downloadReference;
         direct = new File(Environment.getExternalStorageDirectory()
                 + "/Download");
         if (!direct.exists()) {
@@ -84,91 +89,28 @@ public class MainActivity extends Activity  {
 
         //Enqueue download and save the referenceId
         downloadReference = downloadManager.enqueue(request);
-        String str = String.valueOf(downloadReference);
-        Toast.makeText(this,str,Toast.LENGTH_LONG).show();
-        return downloadReference;
-    }
+        /*String str = String.valueOf(downloadReference);
+        Toast.makeText(this,str,Toast.LENGTH_LONG).show();*/
 
-    private void DownloadStatus(Cursor cursor ,  long downloadId) {
-        //column for download  status
-        int columnIndex = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
-        int status = cursor.getInt(columnIndex);
-        //column for reason code if the download failed or paused
-        int columnReason = cursor.getColumnIndex(DownloadManager.COLUMN_REASON);
-        int reason = cursor.getInt(columnReason);
-        //get the download filename
-        int filenameIndex = cursor.getColumnIndex(DownloadManager.COLUMN_LOCAL_FILENAME);
-        String filename = cursor.getString(filenameIndex);
+        BroadcastReceiver dwFinishedReceive = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                String action = intent.getAction();
+                if(DownloadManager.ACTION_DOWNLOAD_COMPLETE.equals(action)) {
+                    DownloadManager.Query query = new DownloadManager.Query();
+                    query.setFilterById(downloadReference);
+                    Cursor cursor =  downloadManager.query(query);
+                    if(cursor.moveToFirst()) {
+                        int index = cursor.getColumnIndex(DownloadManager.COLUMN_STATUS);
+                        if(DownloadManager.STATUS_SUCCESSFUL == cursor.getInt(index)) {
+                            Toast.makeText(getApplicationContext(), "Download Finished", Toast.LENGTH_LONG).show();
+                        }
+                    }
 
-        String statusText="";
-        String reasonText="";
-
-        switch(status){
-            case DownloadManager.STATUS_FAILED:
-                statusText = "STATUS_FAILED";
-                switch(reason) {
-                    case DownloadManager.ERROR_CANNOT_RESUME:
-                        reasonText = "ERROR_CANNOT_RESUME";
-                        Toast.makeText(getApplicationContext(),reasonText,Toast.LENGTH_LONG).show();
-                        break;
-                    case DownloadManager.ERROR_DEVICE_NOT_FOUND:
-                        reasonText = "ERROR_DEVICE_NOT_FOUND";
-                        Toast.makeText(getApplicationContext(),reasonText,Toast.LENGTH_LONG).show();
-                        break;
-                    case DownloadManager.ERROR_FILE_ALREADY_EXISTS:
-                        reasonText = "ERROR_FILE_ALREADY_EXISTS";
-                        Toast.makeText(getApplicationContext(),reasonText,Toast.LENGTH_LONG).show();
-                        break;
-                    case DownloadManager.ERROR_FILE_ERROR:
-                        reasonText = "ERROR_FILE_ERROR";
-                        break;
-                    case DownloadManager.ERROR_HTTP_DATA_ERROR:
-                        reasonText = "ERROR_HTTP_DATA_ERROR";
-                        break;
-                    case DownloadManager.ERROR_INSUFFICIENT_SPACE:
-                        reasonText = "ERROR_INSUFFICIENT_SPACE";
-                        break;
-                    case DownloadManager.ERROR_TOO_MANY_REDIRECTS:
-                        reasonText = "ERROR_TOO_MANY_REDIRECTS";
-                        break;
-                    case DownloadManager.ERROR_UNHANDLED_HTTP_CODE:
-                        reasonText = "ERROR_UNHANDLED_HTTP_CODE";
-                        break;
-                    case DownloadManager.ERROR_UNKNOWN:
-                        reasonText = "ERROR_UNKNOWN";
-                        Toast.makeText(getApplicationContext(),reasonText,Toast.LENGTH_LONG).show();
-                        break;
                 }
-            case DownloadManager.STATUS_PAUSED:
-                statusText="Status_Paused";
-                switch(reason){
-                    case DownloadManager.PAUSED_QUEUED_FOR_WIFI:
-                        reasonText = "PAUSED_QUEUED_FOR_WIFI";
-                        Toast.makeText(getApplicationContext(),reasonText,Toast.LENGTH_LONG).show();
-                        break;
-                    case DownloadManager.PAUSED_UNKNOWN:
-                        reasonText = "PAUSED_UNKNOWN";
-                        break;
-                    case DownloadManager.PAUSED_WAITING_FOR_NETWORK:
-                        reasonText = "PAUSED_WAITING_FOR_NETWORK";
-                        Toast.makeText(getApplicationContext(),reasonText,Toast.LENGTH_LONG).show();
-                        break;
-                    case DownloadManager.PAUSED_WAITING_TO_RETRY:
-                        reasonText = "PAUSED_WAITING_TO_RETRY";
-                        break;
-                }
-                break;
-                    case DownloadManager.STATUS_PENDING:
-                        statusText = "STATUS_PENDING";
-                        break;
-                    case DownloadManager.STATUS_RUNNING:
-                        statusText = "STATUS_RUNNING";
-                        break;
-                    case DownloadManager.STATUS_SUCCESSFUL:
-                        statusText = "STATUS_SUCCESSFUL";
-                        reasonText = "Filename:\n" + filename;
-                        break;
-        }
+            }
+        };
+        registerReceiver(dwFinishedReceive,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
     }
 
     private class UpToQuery extends AsyncTask<String,Void,String> {
@@ -230,6 +172,7 @@ public class MainActivity extends Activity  {
             super.onPostExecute(file_location);
             if (file_location.length()>0) {
                 DownloadData(file_location);
+                registerReceiver(dwFinishedReceive,new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE));
             }else {
                 Toast.makeText(getApplicationContext(),"Non-downloadable",Toast.LENGTH_LONG).show();
             }
