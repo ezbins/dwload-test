@@ -59,12 +59,6 @@ public class MainActivity extends Activity  {
             upToQuery.execute("http://192.168.1.172:8080/iRobot/first");
         }
     });
-   /* public void dwload(View v) {
-        *//*Uri audioPath = Uri.parse(file_localtion);
-        fileDownLoadId = DownloadData();*//*
-        upToQuery = new UpToQuery();
-        upToQuery.execute("http://192.168.1.172:8080/iRobot/first");
-    }*/
 
     private long DownloadData(String url) {
         Uri audioPath = Uri.parse(url);
